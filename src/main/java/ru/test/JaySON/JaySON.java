@@ -1,92 +1,72 @@
 package ru.test.JaySON;
 
-import java.lang.reflect.Field;
+import ru.test.JaySON.Serializer.*;
+
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @SuppressWarnings("WeakerAccess")
 public class JaySON {
+    protected Serializer serializer;
+
+    public JaySON(Serializer serializer) {
+        this.serializer = serializer;
+    }
+
     public String serialize(Object serializationObject) {
-        if (serializationObject == null) {
-            return serializeNull();
-        }
-        else if (serializationObject instanceof Character) {
-            return serializeCharacter((Character) serializationObject);
-        }
-        else if (serializationObject instanceof String) {
-            return serializeString((String) serializationObject);
-        }
-        else if (serializationObject instanceof Number) {
-            return serializeNumber((Number) serializationObject);
-        }
-        else if (serializationObject instanceof List) {
-            return serializeCollection((Collection) serializationObject);
-        }
-        else if (serializationObject instanceof Map) {
-            return serializeMap((Map) serializationObject);
-        }
-
-        return serialize(getObjectFieldNamesAndValues(serializationObject));
+        return serializer.serialize(serializationObject);
     }
 
-    protected String serializeMap(Map serializationObject) {
-        StringBuilder builder = new StringBuilder("{");
+    public Object deserialize(String json) {
+        if (json.matches("^$"))
+            return null;
+        else if (json.matches("^'.'$"))
+            return json.charAt(json.indexOf("'") + 1);
+        else if (json.matches("^\\d+$")) {
+            Matcher numberMatcher = Pattern.compile("\\d+").matcher(json);
 
-        for(Object objectEntry : serializationObject.entrySet().toArray()) {
-            Map.Entry entry = (Map.Entry) objectEntry;
-
-            builder.append("\"").append(entry.getKey()).append("\"");
-            builder.append(":");
-            builder.append(serialize(entry.getValue()));
-            builder.append(",");
+            if (numberMatcher.matches())
+                return Integer.valueOf(json.substring(numberMatcher.start(), numberMatcher.end()));
         }
+        else if (json.matches("^\".*\"$")) {
+            Matcher stringMatcher = Pattern.compile("\".*\"").matcher(json);
 
-        if (",".equals(String.valueOf(builder.charAt(builder.length() - 1))))
-            builder.deleteCharAt(builder.length() - 1);
-
-        return builder.append("}").toString();
-    }
-
-    protected String serializeCollection(Collection serializationObject) {
-        StringBuilder builder = new StringBuilder("[");
-
-        for (Object subObject : serializationObject){
-            builder.append(serialize(subObject)).append(",");
+            if (stringMatcher.matches())
+                return json.substring(stringMatcher.start() + 1, stringMatcher.end() - 1);
         }
+        else if (json.matches("^\\[.*]$")) {
+            Matcher collectionMatcher = Pattern.compile("\\[.*]").matcher(json);
 
-        return builder.deleteCharAt(builder.length()-1).append("]").toString();
-    }
+            if (collectionMatcher.matches()) {
+                ArrayList<Object> parts = new ArrayList<>();
+                String substring = json.substring(collectionMatcher.start() + 1, collectionMatcher.end() - 1);
 
-    protected String serializeNumber(Number serializationObject) {
-        return String.valueOf(serializationObject);
-    }
+                for (String part : substring.split(",")) {
+                    parts.add(deserialize(part));
+                }
 
-    protected String serializeString(String serializationObject) {
-        return "\"" + serializationObject + "\"";
-    }
+                return parts;
+            }
+        } else if (json.matches("^\\{.*}$")) {
+            Matcher mapMatcher = Pattern.compile("^\\{.*}$").matcher(json);
 
-    protected String serializeCharacter(Character serializationObject) {
-        return "'" + serializationObject + "'";
-    }
+            if (mapMatcher.matches()) {
+                HashMap<String, Object> objectParts = new HashMap<>();
+                String substring = json.substring(mapMatcher.start() + 1, mapMatcher.end() - 1);
 
-    protected String serializeNull() {
-        return "\"\"";
-    }
+                for (String objectPart : substring.split(",")) {
+                    String[] part = objectPart.split(":");
+                    String key = (String) deserialize(part[0]);
+                    Object value = deserialize(part[1]);
 
-    protected  <T> Map<String, Object> getObjectFieldNamesAndValues(T object) {
-        Map<String, Object> fieldNamesAndValues = new HashMap<>();
+                    objectParts.put(key, value);
+                }
 
-        for (Field field : object.getClass().getDeclaredFields()) {
-            field.setAccessible(true);
-
-            String fieldName = field.getName();
-
-            try {
-                fieldNamesAndValues.put(fieldName, field.get(object));
-            } catch (IllegalAccessException e) {
-                e.printStackTrace();
+                return objectParts;
             }
         }
 
-        return fieldNamesAndValues;
+        throw new IllegalArgumentException("Invalid Json syntax");
     }
 }

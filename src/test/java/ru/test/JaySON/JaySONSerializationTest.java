@@ -2,42 +2,52 @@ package ru.test.JaySON;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import ru.test.Address;
+import ru.test.JaySON.Serializer.*;
 import ru.test.Person;
 import ru.test.Phone;
 
 import java.util.ArrayList;
 import java.util.List;
 
-class JaySONTest {
-    private JaySON jayson;
+class JaySONSerializationTest {
+    private JaySON jaySON;
     private Person person;
 
     @BeforeEach
     void setUp() {
-        jayson = new JaySON();
+        CompositeSerializer serializer = new CompositeSerializer(new Serializer[]{
+                new NullSerializer(),
+                new CharSerializer(),
+                new NumberSerializer(),
+                new StringSerializer(),
+                new CollectionSerializer(),
+                new MapSerializer(),
+                new ObjectSerializer()
+        });
+
+        jaySON = new JaySON(serializer);
         person = new Person();
     }
 
     @Test
     void testSerializeNull() {
-        String json = jayson.serialize(null);
+        String json = jaySON.serialize(null);
 
-        assertEquals("\"\"", json);
+        assertEquals("null", json);
     }
 
     @Test
     void testSerializeInt() {
-        String json = jayson.serialize(5);
+        String json = jaySON.serialize(5);
 
         assertEquals("5", json);
     }
 
     @Test
     void testSerializeChar() {
-        String json = jayson.serialize('A');
+        String json = jaySON.serialize('A');
 
         assertEquals("'A'", json);
     }
@@ -46,7 +56,7 @@ class JaySONTest {
     void testSerializeObjectWithInts() {
         person.age = 16;
         person.classNumber = 10;
-        String json = jayson.serialize(person);
+        String json = jaySON.serialize(person);
 
         assertTrue(json.contains("\"classNumber\":10"));
         assertTrue(json.contains("\"age\":16"));
@@ -55,7 +65,7 @@ class JaySONTest {
     @Test
     void testSerializeObjectWithChars() {
         person.gender = 'M';
-        String json = jayson.serialize(person);
+        String json = jaySON.serialize(person);
 
         assertTrue(json.contains("\"gender\":'M'"));
     }
@@ -63,7 +73,7 @@ class JaySONTest {
     @Test
     void testSerializeObjectWithString() {
         person.name = "Amanat";
-        String json = jayson.serialize(person);
+        String json = jaySON.serialize(person);
 
         assertTrue(json.contains("\"name\":\"Amanat\""));
     }
@@ -75,7 +85,7 @@ class JaySONTest {
         address.houseNumber = 14;
 
         person.address = address;
-        String json = jayson.serialize(person);
+        String json = jaySON.serialize(person);
 
         assertTrue(json.contains("\"address\":{"));
         assertTrue(json.contains("\"street\":\"Эльтавная 3-я\""));
@@ -89,7 +99,7 @@ class JaySONTest {
         phones.add(new Phone(88008008080L));
 
         person.phones = phones;
-        String json = jayson.serialize(person);
+        String json = jaySON.serialize(person);
 
         assertTrue(json.contains("\"phones\":["));
         assertTrue(json.contains("89387972195"));
@@ -106,8 +116,7 @@ class JaySONTest {
         person.address = new Address("Эльтавная 3-я", 14);
         person.phones = List.of(new Phone(89387972195L), new Phone(88008008080L));
 
-        String json = jayson.serialize(person);
-        System.out.println(json);
+        String json = jaySON.serialize(person);
 
         assertTrue(json.contains("\"classNumber\":10"));
         assertTrue(json.contains("\"age\":16"));
